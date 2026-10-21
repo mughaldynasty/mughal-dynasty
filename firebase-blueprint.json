@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "A dish or item on the restaurant menu.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the dish" },
+        "description": { "type": "string", "description": "Short description of the dish" },
+        "price": { "type": "number", "description": "Price in GBP" },
+        "category": { "type": "string", "description": "Category (e.g., Starters, Main, Sides)" },
+        "image": { "type": "string", "description": "URL to the dish image" },
+        "order": { "type": "number", "description": "Display order within category" },
+        "available": { "type": "boolean", "description": "Whether the item is currently available" }
+      },
+      "required": ["name", "price", "category"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer's order for collection or delivery.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the customer who placed the order" },
+        "items": { "type": "array", "description": "List of items ordered" },
+        "total": { "type": "number", "description": "Total price of the order" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "preparing", "out-for-delivery", "delivered", "cancelled"], "description": "Current status of the order" },
+        "type": { "type": "string", "enum": ["collection", "delivery"], "description": "Order type" },
+        "address": { "type": "string", "description": "Delivery address (if applicable)" },
+        "phone": { "type": "string", "description": "Customer's phone number" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the order was placed" }
+      },
+      "required": ["userId", "items", "total", "status", "type", "phone", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "format": "email", "description": "User's email address" },
+        "role": { "type": "string", "enum": ["admin", "customer"], "description": "User's role" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "ReceiptSettings": {
+      "title": "ReceiptSettings",
+      "description": "Configuration for printed and digital receipts.",
+      "type": "object",
+      "properties": {
+        "businessName": { "type": "string" },
+        "tagline": { "type": "string" },
+        "headerAddress": { "type": "string" },
+        "headerPhone": { "type": "string" },
+        "showContactDetails": { "type": "boolean" },
+        "showTime": { "type": "boolean" },
+        "showItems": { "type": "boolean" },
+        "showOrderDetails": { "type": "boolean" },
+        "showClientInfo": { "type": "boolean" },
+        "showDirection": { "type": "boolean" },
+        "showClientComment": { "type": "boolean" },
+        "adminPasscodeHash": { "type": "string" },
+        "cashDiscount": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "minOrder": { "type": "number" },
+            "percentage": { "type": "number" }
+          }
+        }
+      }
+    },
+    "MeatOption": {
+      "title": "MeatOption",
+      "description": "An option for meat selection in traditional dishes with extra charge.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the meat (e.g., Chicken Tikka)" },
+        "extra": { "type": "number", "description": "Extra charge in GBP" },
+        "order": { "type": "number", "description": "Display order" }
+      },
+      "required": ["name", "extra", "order"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "A table reservation request.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Customer's full name" },
+        "guests": { "type": "number", "description": "Number of guests" },
+        "date": { "type": "string", "description": "Reservation date (YYYY-MM-DD)" },
+        "time": { "type": "string", "description": "Reservation time slot" },
+        "email": { "type": "string", "format": "email", "description": "Customer's email address" },
+        "phone": { "type": "string", "description": "Customer's phone number" },
+        "notes": { "type": "string", "description": "Special requests or notes" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"], "description": "Current status of the reservation" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the reservation was requested" }
+      },
+      "required": ["name", "guests", "date", "time", "email", "phone", "status", "createdAt"]
+    },
+    "EmailNotification": {
+      "title": "EmailNotification",
+      "description": "Log of email dispatch attempts and idempotency claims to prevent duplicates.",
+      "type": "object",
+      "properties": {
+        "idempotencyKey": { "type": "string", "description": "Deterministic key for the notification" },
+        "entityId": { "type": "string", "description": "ID of the order or reservation" },
+        "entityType": { "type": "string", "enum": ["order", "reservation", "test"], "description": "Type of entity" },
+        "notificationType": { "type": "string", "enum": ["order-confirmation", "reservation-confirmation", "collection-ready", "delivery-on-the-way", "test"], "description": "Notification category" },
+        "recipient": { "type": "string", "description": "Destination email address" },
+        "subject": { "type": "string", "description": "Email subject line" },
+        "status": { "type": "string", "enum": ["sending", "sent", "failed"], "description": "Delivery status" },
+        "provider": { "type": "string", "description": "Provider used (cloudflare-worker, smtp, emailjs)" },
+        "providerMessageId": { "type": "string", "description": "Message ID returned by provider" },
+        "error": { "type": "string", "description": "Error message if dispatch failed" },
+        "attempts": { "type": "number", "description": "Number of dispatch attempts" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "sentAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["idempotencyKey", "status", "recipient", "subject"]
+    }
+  },
+  "firestore": {
+    "/menu": { "schema": "MenuItem", "description": "Collection of menu items" },
+    "/orders": { "schema": "Order", "description": "Collection of customer orders" },
+    "/users": { "schema": "User", "description": "Collection of user profiles" },
+    "/settings": { "schema": "ReceiptSettings", "description": "Application-wide configuration settings" },
+    "/meatOptions": { "schema": "MeatOption", "description": "Configuration for meat selection options" },
+    "/reservations": { "schema": "Reservation", "description": "Collection of table reservations" },
+    "/bookings": { "schema": "Reservation", "description": "Collection of raw table bookings (synced)" },
+    "/booking": { "schema": "Reservation", "description": "Collection of raw table booking (synced)" },
+    "/email_notifications": { "schema": "EmailNotification", "description": "Collection of email notification idempotency claims and logs" }
+  }
+}

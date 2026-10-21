@@ -1,0 +1,139 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "mughaldynastyrestaurant@gmail.com" && request.auth.token.email_verified == true)
+        );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'role']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['admin', 'customer'];
+    }
+
+    function isValidMenuItem(data) {
+      return data.keys().hasAll(['name', 'price', 'category']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.price is number && data.price >= 0 &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
+             (!('description' in data) || (data.description is string && data.description.size() < 500)) &&
+             (!('image' in data) || (data.image is string && data.image.size() < 1000)) &&
+             (!('order' in data) || data.order is number) &&
+             (!('available' in data) || data.available is bool);
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'items', 'total', 'status', 'type', 'createdAt']) &&
+             data.userId is string && data.userId.size() > 0 &&
+             data.items is list && data.items.size() > 0 && data.items.size() < 100 &&
+             data.total is number && data.total >= 0 &&
+             data.status in ["pending", "confirmed", "preparing", "ready", "shipped", "out-for-delivery", "delivered", "collected", "cancelled"] &&
+             data.type in ["collection", "delivery"] &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+             data.createdAt is timestamp &&
+             (!('subtotal' in data) || data.subtotal is number) &&
+             (!('discountAmount' in data) || data.discountAmount is number) &&
+             (!('discountPercentage' in data) || data.discountPercentage is number);
+    }
+
+    function isValidMeatOption(data) {
+      return data.keys().hasAll(['name', 'extra', 'order']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 50 &&
+             data.extra is number && data.extra >= 0 &&
+             data.order is number;
+    }
+
+    function isValidReservation(data) {
+      return data.keys().hasAll(['name', 'guests', 'date', 'time', 'email', 'phone', 'status', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.guests is number && data.guests > 0 && data.guests < 100 &&
+             data.date is string && data.date.size() == 10 &&
+             data.time is string && data.time.size() > 0 && data.time.size() < 20 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.phone is string && data.phone.size() >= 10 && data.phone.size() <= 15 &&
+             data.status in ["pending", "accepted", "rejected"] &&
+             data.createdAt is timestamp &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 1000));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+    }
+
+    match /menu/{itemId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidMenuItem(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if isValidOrder(request.resource.data);
+      allow update: if isAdmin() || (
+        isValidOrder(request.resource.data) && (
+          (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+          (resource.data.status == 'pending')
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true; // Allow everyone to read settings (app name, discounts etc)
+      allow write: if isAdmin(); // Only admins can update settings
+    }
+
+    match /meatOptions/{optionId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidMeatOption(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /reservations/{reservationId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.email == request.auth.token.email);
+      allow create: if isValidReservation(request.resource.data);
+      allow update: if isAdmin() && isValidReservation(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow read, write: if true;
+    }
+
+    match /booking/{bookingId} {
+      allow read, write: if true;
+    }
+
+    match /email_notifications/{notificationId} {
+      allow read, write: if true;
+    }
+  }
+}
